@@ -28,6 +28,7 @@ void get_username(char *username)
 
       puts("Username must be 20 characters or less.");
       fflush(stdout);
+
     } else {
       break;
     }
@@ -43,7 +44,7 @@ void set_username(int sock, char *username)
 
   if(send(sock, (void*)&username_message, sizeof(username_message), 0) < 0)
   {
-    puts("Send failed");
+    perror("Send failed");
     exit(1);
   }
 }
@@ -70,7 +71,7 @@ int main(int argc , char *argv[])
     //Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM , IPPROTO_TCP)) < 0)
     {
-        printf("Could not create socket\n");
+        perror("Could not create socket");
     }
     puts("Socket created\n");
 
@@ -107,12 +108,18 @@ int main(int argc , char *argv[])
           strncpy(public_message.username, username, 21);
 
           fgets(public_message.data, 256, stdin);
+
+          //if there is no input, don't send it.
+          if(strlen(public_message.data) == 0) {
+            continue;
+          }
+
           trim_newline(public_message.data);
 
           //Send some data
           if(send(sock, &public_message, sizeof(message), 0) < 0)
           {
-              puts("Send failed");
+              perror("Send failed");
               exit(1);
           }
 
@@ -129,7 +136,7 @@ int main(int argc , char *argv[])
           ssize_t recv_val = recv(sock, &received_message, sizeof(message), 0);
           if(recv_val < 0)
           {
-              puts("recv failed");
+              perror("recv failed");
               break;
 
           }
@@ -147,11 +154,15 @@ int main(int argc , char *argv[])
             break;
 
           case PUBLIC_MESSAGE:
-            printf("%s: %s\n", received_message.username, received_message.data);
+            printf("%s: %s", received_message.username, received_message.data);
             break;
 
+          case TOO_FULL:
+            printf("Server chatroom is too full to accept new clients.\n");
+            exit(0);
+
           default:
-            printf("Unknown message type received.\n");
+            fprintf(stderr, "Unknown message type received.\n");
             break;
           }
 

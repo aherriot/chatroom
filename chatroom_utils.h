@@ -14,7 +14,8 @@ typedef enum
   GET_USERS,
   SET_USERNAME,
   PUBLIC_MESSAGE,
-  PRIVATE_MESSAGE
+  PRIVATE_MESSAGE,
+  TOO_FULL
 
 } message_type;
 

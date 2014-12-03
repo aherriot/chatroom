@@ -14,7 +14,7 @@
 
 #include "chatroom_utils.h"
 
-#define MAX_CLIENTS 4
+#define MAX_CLIENTS 2
 
 void send_public_message(connection_info connection[], int sender,
               char *username, char *message_text)
@@ -38,7 +38,21 @@ void send_public_message(connection_info connection[], int sender,
   }
 }
 
+void send_too_full_message(int socket) {
 
+  message too_full_message;
+  too_full_message.type = TOO_FULL;
+
+  if(send(socket, &too_full_message, sizeof(too_full_message), 0) < 0)
+  {
+      puts("Send failed");
+      exit(1);
+  }
+
+  close(socket);
+}
+
+//close all the sockets before exiting
 void stop_server(connection_info connection[])
 {
   int i;
@@ -49,6 +63,7 @@ void stop_server(connection_info connection[])
   }
   exit(0);
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -72,13 +87,13 @@ int main(int argc, char *argv[])
   if (argc != 2)
   {
 
-    printf("Usage: %s <port>\n", argv[0]);
+    fprintf(stderr, "Usage: %s <port>\n", argv[0]);
     exit(1);
   }
 
   if((main_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
   {
-    perror("Failed to create socket.");
+    perror("Failed to create socket");
     exit(1);
   }
 
@@ -88,13 +103,13 @@ int main(int argc, char *argv[])
 
   if(bind(main_socket, (struct sockaddr *)&address, sizeof(address)) < 0)
   {
-    perror("Binding failed.");
+    perror("Binding failed");
     exit(1);
   }
 
 
   if(listen(main_socket, 3) < 0) {
-    perror("Listen failed.");
+    perror("Listen failed");
     exit(1);
   }
 
@@ -126,12 +141,11 @@ int main(int argc, char *argv[])
 
     if(select(max_fd+1, &file_descriptors, NULL, NULL, NULL) < 0)
     {
-      perror("Select Failed.");
+      perror("Select Failed");
     }
 
     if(FD_ISSET(STDIN_FILENO, &file_descriptors))
     {
-      puts("standard input");
       char input[255] = {};
       fgets(input, sizeof(input), stdin);
       trim_newline(input);
@@ -144,13 +158,12 @@ int main(int argc, char *argv[])
 
     if(FD_ISSET(main_socket, &file_descriptors))
     {
-      puts("main socket");
       int new_socket;
       new_socket = accept(main_socket, (struct sockaddr*)&address, (socklen_t*)&address_len);
 
       if (new_socket < 0)
       {
-        printf("Accept Failed: %s\n", strerror(errno));
+        perror("Accept Failed");
         exit(1);
       }
 
@@ -158,8 +171,11 @@ int main(int argc, char *argv[])
       {
         if(connection[i].socket == 0) {
           connection[i].socket = new_socket;
-          printf("Client[%d]=%d: connected.\n", i, connection[i].socket);
           break;
+
+        } else if (i == MAX_CLIENTS -1) // if we can accept no more clients
+        {
+          send_too_full_message(new_socket);
         }
       }
     }
@@ -201,8 +217,7 @@ int main(int argc, char *argv[])
             break;
 
           default:
-            printf("Unknown message type received.\n");
-
+            fprintf(stderr, "Unknown message type received.\n");
             break;
           }
 
