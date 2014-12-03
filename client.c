@@ -145,41 +145,41 @@ void handle_server_message(connection_info *connection)
 
 int main(int argc, char *argv[])
 {
-    connection_info connection;
-    fd_set file_descriptors;
+  connection_info connection;
+  fd_set file_descriptors;
 
-    if (argc != 3) {
-      fprintf(stderr,"Usage: %s <IP> <port>\n", argv[0]);
-      exit(1);
-    }
+  if (argc != 3) {
+    fprintf(stderr,"Usage: %s <IP> <port>\n", argv[0]);
+    exit(1);
+  }
 
-    connect_to_server(&connection, argv[1], argv[2]);
+  connect_to_server(&connection, argv[1], argv[2]);
 
-    //keep communicating with server
-    while(true)
+  //keep communicating with server
+  while(true)
+  {
+    FD_ZERO(&file_descriptors);
+    FD_SET(STDIN_FILENO, &file_descriptors);
+    FD_SET(connection.socket, &file_descriptors);
+
+    if(select(connection.socket+1, &file_descriptors, NULL, NULL, NULL) < 0)
     {
-        FD_ZERO(&file_descriptors);
-        FD_SET(STDIN_FILENO, &file_descriptors);
-        FD_SET(connection.socket, &file_descriptors);
-
-        if(select(connection.socket+1, &file_descriptors, NULL, NULL, NULL) < 0)
-        {
-          perror("Select failed.");
-        }
-
-        if(FD_ISSET(STDIN_FILENO, &file_descriptors))
-        {
-          handle_user_input(&connection);
-        }
-
-        if(FD_ISSET(connection.socket, &file_descriptors))
-        {
-          handle_server_message(&connection);
-        }
+      perror("Select failed.");
     }
 
-    close(connection.socket);
-    return 0;
+    if(FD_ISSET(STDIN_FILENO, &file_descriptors))
+    {
+      handle_user_input(&connection);
+    }
+
+    if(FD_ISSET(connection.socket, &file_descriptors))
+    {
+      handle_server_message(&connection);
+    }
+  }
+
+  close(connection.socket);
+  return 0;
 }
 
 
