@@ -10,3 +10,10 @@ void trim_newline(char *text)
       text[len] = '\0';
   }
 }
+
+void clear_stdin_buffer()
+{
+  int c;
+  while((c = getchar()) != '\n' && c != EOF)
+    /* discard content*/ ;
+}

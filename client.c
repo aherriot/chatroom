@@ -23,9 +23,7 @@ void get_username(char *username)
 
     if(strlen(username) > 20)
     {
-      int c;
-      while((c = getchar()) != '\n' && c != EOF)
-        /* discard */ ;
+      clear_stdin_buffer();
 
       puts("Username must be 20 characters or less.");
       fflush(stdout);
@@ -88,6 +86,7 @@ void handle_user_input(connection_info *connection)
   strncpy(public_message.username, connection->username, 21);
 
   fgets(public_message.data, 256, stdin);
+  //clear_stdin_buffer();
 
   //if there is no input, don't send it.
   if(strlen(public_message.data) == 0) {
@@ -165,6 +164,7 @@ int main(int argc, char *argv[])
     if(select(connection.socket+1, &file_descriptors, NULL, NULL, NULL) < 0)
     {
       perror("Select failed.");
+      exit(1);
     }
 
     if(FD_ISSET(STDIN_FILENO, &file_descriptors))

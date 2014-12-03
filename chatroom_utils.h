@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <stdio.h>
 
 
 //Enum of different messages possible.
@@ -40,5 +41,8 @@ typedef struct connection_info
 
 // Removes the trailing newline character from a string.
 void trim_newline(char *text);
+
+// discard any remaining data on stdin buffer.
+void clear_stdin_buffer();
 
 #endif
