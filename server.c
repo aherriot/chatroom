@@ -33,6 +33,14 @@ void initialize_server(connection_info *server_info, int port)
     exit(1);
   }
 
+  const int optVal = 1;
+  const socklen_t optLen = sizeof(optVal);
+  if(setsockopt(server_info->socket, SOL_SOCKET, SO_REUSEADDR, (void*) &optVal, optLen) < 0)
+  {
+    perror("Set socket option failed");
+    exit(1);
+  }
+
 
   if(listen(server_info->socket, 3) < 0) {
     perror("Listen failed");
@@ -58,21 +66,59 @@ void send_public_message(connection_info clients[], int sender,
     {
       if(send(clients[i].socket, &public_message, sizeof(public_message), 0) < 0)
       {
-          puts("Send failed");
+          perror("Send failed");
           exit(1);
       }
     }
   }
 }
 
-void send_too_full_message(int socket) {
+void send_connect_message(connection_info *clients, int sender)
+{
+  message msg;
+  msg.type = CONNECT;
+  strncpy(msg.username, clients[sender].username, 21);
+  int i = 0;
+  for(i = 0; i < MAX_CLIENTS; i++)
+  {
+    if(i != sender && clients[i].socket != 0)
+    {
+      if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+      {
+          perror("Send failed");
+          exit(1);
+      }
+    }
+  }
+}
 
+void send_disconnect_message(connection_info *clients, char *username)
+{
+  message msg;
+  msg.type = DISCONNECT;
+  strncpy(msg.username, username, 21);
+  int i = 0;
+  for(i = 0; i < MAX_CLIENTS; i++)
+  {
+    if(clients[i].socket != 0)
+    {
+      if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+      {
+          perror("Send failed");
+          exit(1);
+      }
+    }
+  }
+}
+
+void send_too_full_message(int socket)
+{
   message too_full_message;
   too_full_message.type = TOO_FULL;
 
   if(send(socket, &too_full_message, sizeof(too_full_message), 0) < 0)
   {
-      puts("Send failed");
+      perror("Send failed");
       exit(1);
   }
 
@@ -99,17 +145,19 @@ void handle_client_message(connection_info clients[], int i)
 
   if((read_size = recv(clients[i].socket, &received_message, sizeof(message), 0)) == 0)
   {
-    printf("User %s disconnected.\n", clients[i].username);
+    printf("User disconnected: %s.\n", clients[i].username);
     close(clients[i].socket);
     clients[i].socket = 0;
+    send_disconnect_message(clients, clients[i].username);
 
   } else {
-    printf("handle_client_message\n");
+
     switch(received_message.type)
     {
       case SET_USERNAME:
         strcpy(clients[i].username, received_message.username);
         printf("User connected: %s\n", clients[i].username);
+        send_connect_message(clients, i);
       break;
 
       case PUBLIC_MESSAGE:
@@ -184,7 +232,6 @@ void handle_new_connection(connection_info *server_info, connection_info clients
 
 void handle_user_input(connection_info clients[])
 {
-  puts("handle user input");
   char input[255];
   fgets(input, sizeof(input), stdin);
   trim_newline(input);
@@ -196,7 +243,7 @@ void handle_user_input(connection_info clients[])
 
 int main(int argc, char *argv[])
 {
-  puts("Starting server");
+  puts("Starting server.");
 
   fd_set file_descriptors;
 
@@ -256,7 +303,7 @@ int main(int argc, char *argv[])
 
     for(i = 0; i < MAX_CLIENTS; i++)
     {
-      if(FD_ISSET(clients[i].socket, &file_descriptors))
+      if(clients[i].socket > 0 && FD_ISSET(clients[i].socket, &file_descriptors))
       {
         handle_client_message(clients, i);
       }

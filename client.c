@@ -23,10 +23,9 @@ void get_username(char *username)
 
     if(strlen(username) > 20)
     {
-      clear_stdin_buffer();
+      // clear_stdin_buffer();
 
       puts("Username must be 20 characters or less.");
-      fflush(stdout);
 
     } else {
       break;
@@ -49,6 +48,13 @@ void set_username(connection_info *connection)
   }
 }
 
+
+void stop_client(connection_info *connection)
+{
+  close(connection->socket);
+  exit(0);
+}
+
 //initialize connection to the server.
 void connect_to_server(connection_info *connection, char *address, char *port)
 {
@@ -60,14 +66,13 @@ void connect_to_server(connection_info *connection, char *address, char *port)
   {
       perror("Could not create socket");
   }
-  puts("Socket created\n");
 
   connection->address.sin_addr.s_addr = inet_addr(address);
   connection->address.sin_family = AF_INET;
   connection->address.sin_port = htons(atoi(port));
 
   //Connect to remote server
-  if (connect(connection->socket , (struct sockaddr *)&connection->address , sizeof(connection->address)) < 0)
+  if (connect(connection->socket, (struct sockaddr *)&connection->address , sizeof(connection->address)) < 0)
   {
       perror("Connect failed.");
       exit(1);
@@ -75,28 +80,33 @@ void connect_to_server(connection_info *connection, char *address, char *port)
 
   set_username(connection);
 
-  puts("Connected\n");
+  puts("Connected to server.");
 }
 
 
 void handle_user_input(connection_info *connection)
 {
-  message public_message;
-  public_message.type = PUBLIC_MESSAGE;
-  strncpy(public_message.username, connection->username, 21);
+  message msg;
+  msg.type = PUBLIC_MESSAGE;
+  strncpy(msg.username, connection->username, 21);
 
-  fgets(public_message.data, 256, stdin);
-  //clear_stdin_buffer();
+  fgets(msg.data, 255, stdin);
+  trim_newline(msg.data);
 
-  //if there is no input, don't send it.
-  if(strlen(public_message.data) == 0) {
-    return;
+  if(msg.data[0] == '/' && msg.data[1] == 'q')
+  {
+    stop_client(connection);
   }
 
-  trim_newline(public_message.data);
+
+  // clear_stdin_buffer();
+
+  // if(strlen(public_message.data) == 0) {
+  //   return;
+  // }
 
   //Send some data
-  if(send(connection->socket, &public_message, sizeof(message), 0) < 0)
+  if(send(connection->socket, &msg, sizeof(message), 0) < 0)
   {
       perror("Send failed");
       exit(1);
@@ -105,10 +115,10 @@ void handle_user_input(connection_info *connection)
 
 void handle_server_message(connection_info *connection)
 {
-  message received_message;
+  message msg;
 
   //Receive a reply from the server
-  ssize_t recv_val = recv(connection->socket, &received_message, sizeof(message), 0);
+  ssize_t recv_val = recv(connection->socket, &msg, sizeof(message), 0);
   if(recv_val < 0)
   {
       perror("recv failed");
@@ -119,25 +129,34 @@ void handle_server_message(connection_info *connection)
   {
     close(connection->socket);
     puts("Server disconnected.");
-    exit(1);
+    exit(0);
   }
 
-  switch(received_message.type)
+  switch(msg.type)
   {
-
-  case SET_USERNAME:
+    case SET_USERNAME:
+      //TODO: implement
     break;
 
-  case PUBLIC_MESSAGE:
-    printf("%s: %s", received_message.username, received_message.data);
+    case PUBLIC_MESSAGE:
+      printf("%s: %s\n", msg.username, msg.data);
     break;
 
-  case TOO_FULL:
-    printf("Server chatroom is too full to accept new clients.\n");
-    exit(0);
+    case TOO_FULL:
+      printf("Server chatroom is too full to accept new clients.\n");
+      exit(0);
+    break;
 
-  default:
-    fprintf(stderr, "Unknown message type received.\n");
+    case CONNECT:
+      printf("%s has connected.\n", msg.username);
+    break;
+
+    case DISCONNECT:
+      printf("%s has disconnected.\n", msg.username);
+    break;
+
+    default:
+      fprintf(stderr, "Unknown message type received.\n");
     break;
   }
 }
@@ -160,6 +179,7 @@ int main(int argc, char *argv[])
     FD_ZERO(&file_descriptors);
     FD_SET(STDIN_FILENO, &file_descriptors);
     FD_SET(connection.socket, &file_descriptors);
+    fflush(stdin);
 
     if(select(connection.socket+1, &file_descriptors, NULL, NULL, NULL) < 0)
     {
