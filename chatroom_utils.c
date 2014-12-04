@@ -1,5 +1,6 @@
 #include "chatroom_utils.h"
 
+
 #include <string.h>
 
 void trim_newline(char *text)

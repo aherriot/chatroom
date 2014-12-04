@@ -139,7 +139,7 @@ void handle_server_message(connection_info *connection)
     break;
 
     case PUBLIC_MESSAGE:
-      printf("%s: %s\n", msg.username, msg.data);
+      printf(KGRN "%s" RESET": %s\n", msg.username, msg.data);
     break;
 
     case TOO_FULL:
@@ -148,15 +148,15 @@ void handle_server_message(connection_info *connection)
     break;
 
     case CONNECT:
-      printf("%s has connected.\n", msg.username);
+      printf(KCYN "%s has connected.\n" RESET, msg.username);
     break;
 
     case DISCONNECT:
-      printf("%s has disconnected.\n", msg.username);
+      printf(KCYN "%s has disconnected.\n" RESET, msg.username);
     break;
 
     default:
-      fprintf(stderr, "Unknown message type received.\n");
+      fprintf(stderr, KRED "Unknown message type received.\n" RESET);
     break;
   }
 }
