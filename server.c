@@ -111,6 +111,30 @@ void send_disconnect_message(connection_info *clients, char *username)
   }
 }
 
+void send_user_list(connection_info *clients, int receiver) {
+  //TODO: Implement
+  // message msg;
+  // msg.type = GET_USERS;
+  //
+  // int i;
+  // for(i = 0; i < MAX_CLIENTS; i++)
+  // {
+  //   if(clients[i].socket != 0)
+  //   {
+  //
+  //   }
+  // }
+  //
+  // msg.data =;
+  //
+  // if(send(clients[receiver].socket, &msg, sizeof(msg), 0) < 0)
+  // {
+  //     perror("Send failed");
+  //     exit(1);
+  // }
+
+}
+
 void send_too_full_message(int socket)
 {
   message too_full_message;
@@ -141,9 +165,9 @@ void stop_server(connection_info connection[])
 void handle_client_message(connection_info clients[], int i)
 {
   int read_size;
-  message received_message;
+  message msg;
 
-  if((read_size = recv(clients[i].socket, &received_message, sizeof(message), 0)) == 0)
+  if((read_size = recv(clients[i].socket, &msg, sizeof(message), 0)) == 0)
   {
     printf("User disconnected: %s.\n", clients[i].username);
     close(clients[i].socket);
@@ -152,25 +176,25 @@ void handle_client_message(connection_info clients[], int i)
 
   } else {
 
-    switch(received_message.type)
+    switch(msg.type)
     {
+
+      case GET_USERS:
+        send_user_list(clients, i);
+      break;
+
       case SET_USERNAME:
-        strcpy(clients[i].username, received_message.username);
+        strcpy(clients[i].username, msg.username);
         printf("User connected: %s\n", clients[i].username);
         send_connect_message(clients, i);
       break;
 
       case PUBLIC_MESSAGE:
-        send_public_message(clients, i, received_message.username, received_message.data);
+        send_public_message(clients, i, msg.username, msg.data);
       break;
 
       case PRIVATE_MESSAGE:
         //TODO: Implement private message
-      break;
-
-      case GET_USERS:
-        strcpy(clients[i].username, received_message.data);
-        printf("User: %s\n", clients[i].username);
       break;
 
       default:

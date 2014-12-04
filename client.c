@@ -87,30 +87,58 @@ void connect_to_server(connection_info *connection, char *address, char *port)
 void handle_user_input(connection_info *connection)
 {
   message msg;
-  msg.type = PUBLIC_MESSAGE;
-  strncpy(msg.username, connection->username, 21);
-
   fgets(msg.data, 255, stdin);
   trim_newline(msg.data);
 
-  if(msg.data[0] == '/' && msg.data[1] == 'q')
+  if(strcmp(msg.data, "/q") == 0 || strcmp(msg.data, "/quit") == 0)
   {
     stop_client(connection);
   }
-
-
-  // clear_stdin_buffer();
-
-  // if(strlen(public_message.data) == 0) {
-  //   return;
-  // }
-
-  //Send some data
-  if(send(connection->socket, &msg, sizeof(message), 0) < 0)
+  else if(strcmp(msg.data, "/l") == 0 || strcmp(msg.data, "/list") == 0)
   {
-      perror("Send failed");
-      exit(1);
+
+    msg.type = GET_USERS;
+
+    if(send(connection->socket, &msg, sizeof(message), 0) < 0)
+    {
+        perror("Send failed");
+        exit(1);
+    }
   }
+  else if(strcmp(msg.data, "/h") == 0 || strcmp(msg.data, "/help") == 0)
+  {
+    puts("/quit or /q: Exit the program.");
+    puts("/help or /h: Displays help information.");
+    puts("/list or /l: Displays list of users in chatroom.");
+    puts("/m <username>: Send private message to given username.");
+  }
+  else if(strncmp(msg.data, "/m ", 2) == 0)
+  {
+    //TODO: private messaging.
+    puts("Private messaging to be implemented.");
+  }
+  else //regular public message
+  {
+    message msg;
+    msg.type = PUBLIC_MESSAGE;
+    strncpy(msg.username, connection->username, 20);
+
+    // clear_stdin_buffer();
+
+    if(strlen(msg.data) == 0) {
+        return;
+    }
+
+    //Send some data
+    if(send(connection->socket, &msg, sizeof(message), 0) < 0)
+    {
+        perror("Send failed");
+        exit(1);
+    }
+  }
+
+
+
 }
 
 void handle_server_message(connection_info *connection)
@@ -134,26 +162,37 @@ void handle_server_message(connection_info *connection)
 
   switch(msg.type)
   {
+
+    case CONNECT:
+      printf(KCYN "%s has connected." RESET "\n", msg.username);
+    break;
+
+    case DISCONNECT:
+      printf(KCYN "%s has disconnected." RESET "\n" , msg.username);
+    break;
+
+    case GET_USERS:
+      printf("users: %s\n", msg.data);
+    break;
+
     case SET_USERNAME:
       //TODO: implement
     break;
 
     case PUBLIC_MESSAGE:
-      printf(KGRN "%s" RESET": %s\n", msg.username, msg.data);
+      printf(KGRN "%s" RESET ": %s\n", msg.username, msg.data);
+    break;
+
+    case PRIVATE_MESSAGE:
+      printf(KGRN "From %s:" KMAG " %s\n" RESET, msg.username, msg.data);
     break;
 
     case TOO_FULL:
-      printf("Server chatroom is too full to accept new clients.\n");
+      printf(KRED "Server chatroom is too full to accept new clients.\n" RESET);
       exit(0);
     break;
 
-    case CONNECT:
-      printf(KCYN "%s has connected.\n" RESET, msg.username);
-    break;
 
-    case DISCONNECT:
-      printf(KCYN "%s has disconnected.\n" RESET, msg.username);
-    break;
 
     default:
       fprintf(stderr, KRED "Unknown message type received.\n" RESET);
