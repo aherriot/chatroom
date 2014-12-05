@@ -112,26 +112,25 @@ void send_disconnect_message(connection_info *clients, char *username)
 }
 
 void send_user_list(connection_info *clients, int receiver) {
-  //TODO: Implement
-  // message msg;
-  // msg.type = GET_USERS;
-  //
-  // int i;
-  // for(i = 0; i < MAX_CLIENTS; i++)
-  // {
-  //   if(clients[i].socket != 0)
-  //   {
-  //
-  //   }
-  // }
-  //
-  // msg.data =;
-  //
-  // if(send(clients[receiver].socket, &msg, sizeof(msg), 0) < 0)
-  // {
-  //     perror("Send failed");
-  //     exit(1);
-  // }
+  message msg;
+  msg.type = GET_USERS;
+  char *list = msg.data;
+
+  int i;
+  for(i = 0; i < MAX_CLIENTS; i++)
+  {
+    if(clients[i].socket != 0)
+    {
+      list = stpcpy(list, clients[i].username);
+      list = stpcpy(list, "\n");
+    }
+  }
+
+  if(send(clients[receiver].socket, &msg, sizeof(msg), 0) < 0)
+  {
+      perror("Send failed");
+      exit(1);
+  }
 
 }
 

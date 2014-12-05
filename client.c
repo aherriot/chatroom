@@ -81,22 +81,23 @@ void connect_to_server(connection_info *connection, char *address, char *port)
   set_username(connection);
 
   puts("Connected to server.");
+  puts("Type /help for usage.");
 }
 
 
 void handle_user_input(connection_info *connection)
 {
-  message msg;
-  fgets(msg.data, 255, stdin);
-  trim_newline(msg.data);
+  char input[255];
+  fgets(input, 255, stdin);
+  trim_newline(input);
 
-  if(strcmp(msg.data, "/q") == 0 || strcmp(msg.data, "/quit") == 0)
+  if(strcmp(input, "/q") == 0 || strcmp(input, "/quit") == 0)
   {
     stop_client(connection);
   }
-  else if(strcmp(msg.data, "/l") == 0 || strcmp(msg.data, "/list") == 0)
+  else if(strcmp(input, "/l") == 0 || strcmp(input, "/list") == 0)
   {
-
+    message msg;
     msg.type = GET_USERS;
 
     if(send(connection->socket, &msg, sizeof(message), 0) < 0)
@@ -105,14 +106,14 @@ void handle_user_input(connection_info *connection)
         exit(1);
     }
   }
-  else if(strcmp(msg.data, "/h") == 0 || strcmp(msg.data, "/help") == 0)
+  else if(strcmp(input, "/h") == 0 || strcmp(input, "/help") == 0)
   {
     puts("/quit or /q: Exit the program.");
     puts("/help or /h: Displays help information.");
     puts("/list or /l: Displays list of users in chatroom.");
     puts("/m <username>: Send private message to given username.");
   }
-  else if(strncmp(msg.data, "/m ", 2) == 0)
+  else if(strncmp(input, "/m ", 2) == 0)
   {
     //TODO: private messaging.
     puts("Private messaging to be implemented.");
@@ -125,9 +126,11 @@ void handle_user_input(connection_info *connection)
 
     // clear_stdin_buffer();
 
-    if(strlen(msg.data) == 0) {
+    if(strlen(input) == 0) {
         return;
     }
+
+    strncpy(msg.data, input, 255);
 
     //Send some data
     if(send(connection->socket, &msg, sizeof(message), 0) < 0)
@@ -172,7 +175,7 @@ void handle_server_message(connection_info *connection)
     break;
 
     case GET_USERS:
-      printf("users: %s\n", msg.data);
+      printf("%s", msg.data);
     break;
 
     case SET_USERNAME:
