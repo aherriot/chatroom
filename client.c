@@ -111,12 +111,53 @@ void handle_user_input(connection_info *connection)
     puts("/quit or /q: Exit the program.");
     puts("/help or /h: Displays help information.");
     puts("/list or /l: Displays list of users in chatroom.");
-    puts("/m <username>: Send private message to given username.");
+    puts("/m <username> <message> Send a private message to given username.");
   }
-  else if(strncmp(input, "/m ", 2) == 0)
+  else if(strncmp(input, "/m", 2) == 0)
   {
-    //TODO: private messaging.
-    puts("Private messaging to be implemented.");
+    message msg;
+    msg.type = PRIVATE_MESSAGE;
+
+    char *toUsername, *chatMsg;
+
+    toUsername = strtok(input+3, " ");
+
+    if(toUsername == NULL)
+    {
+      puts(KRED "The format for private messages is: /m <username> <message>" RESET);
+      return;
+    }
+
+    if(strlen(toUsername) == 0)
+    {
+      puts(KRED "You must enter a username for a private message." RESET);
+      return;
+    }
+
+    if(strlen(toUsername) > 20)
+    {
+      puts(KRED "The username must be between 1 and 20 characters." RESET);
+      return;
+    }
+
+    chatMsg = strtok(NULL, "");
+
+    if(chatMsg == NULL)
+    {
+      puts(KRED "You must enter a message to send to the specified user." RESET);
+      return;
+    }
+
+    //printf("|%s|%s|\n", toUsername, chatMsg);
+    strncpy(msg.username, toUsername, 20);
+    strncpy(msg.data, chatMsg, 255);
+
+    if(send(connection->socket, &msg, sizeof(message), 0) < 0)
+    {
+        perror("Send failed");
+        exit(1);
+    }
+
   }
   else //regular public message
   {
@@ -167,11 +208,11 @@ void handle_server_message(connection_info *connection)
   {
 
     case CONNECT:
-      printf(KCYN "%s has connected." RESET "\n", msg.username);
+      printf(KYEL "%s has connected." RESET "\n", msg.username);
     break;
 
     case DISCONNECT:
-      printf(KCYN "%s has disconnected." RESET "\n" , msg.username);
+      printf(KYEL "%s has disconnected." RESET "\n" , msg.username);
     break;
 
     case GET_USERS:
@@ -179,7 +220,7 @@ void handle_server_message(connection_info *connection)
     break;
 
     case SET_USERNAME:
-      //TODO: implement
+      //TODO: implement: name changes in the future?
     break;
 
     case PUBLIC_MESSAGE:
@@ -187,18 +228,20 @@ void handle_server_message(connection_info *connection)
     break;
 
     case PRIVATE_MESSAGE:
-      printf(KGRN "From %s:" KMAG " %s\n" RESET, msg.username, msg.data);
+      printf(KWHT "From %s:" KCYN " %s\n" RESET, msg.username, msg.data);
     break;
 
     case TOO_FULL:
-      printf(KRED "Server chatroom is too full to accept new clients.\n" RESET);
+      fprintf(stderr, KRED "Server chatroom is too full to accept new clients." RESET "\n");
       exit(0);
     break;
 
-
+    case USERNAME_ERROR:
+      fprintf(stderr, KRED "%s" RESET "\n", msg.data);
+    break;
 
     default:
-      fprintf(stderr, KRED "Unknown message type received.\n" RESET);
+      fprintf(stderr, KRED "Unknown message type received." RESET "\n");
     break;
   }
 }

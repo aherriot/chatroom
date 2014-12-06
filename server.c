@@ -51,26 +51,58 @@ void initialize_server(connection_info *server_info, int port)
   printf("Waiting for incoming connections...\n");
 }
 
-
-void send_public_message(connection_info clients[], int sender,
-              char *username, char *message_text)
+void send_public_message(connection_info clients[], int sender, char *message_text)
 {
-  message public_message;
-  public_message.type = PUBLIC_MESSAGE;
-  strncpy(public_message.username, username, 21);
-  strncpy(public_message.data, message_text, 256);
+  message msg;
+  msg.type = PUBLIC_MESSAGE;
+  strncpy(msg.username, clients[sender].username, 20);
+  strncpy(msg.data, message_text, 256);
   int i = 0;
   for(i = 0; i < MAX_CLIENTS; i++)
   {
     if(i != sender && clients[i].socket != 0)
     {
-      if(send(clients[i].socket, &public_message, sizeof(public_message), 0) < 0)
+      if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
       {
           perror("Send failed");
           exit(1);
       }
     }
   }
+}
+
+void send_private_message(connection_info clients[], int sender,
+  char *username, char *message_text)
+{
+  message msg;
+  msg.type = PRIVATE_MESSAGE;
+  strncpy(msg.username, clients[sender].username, 20);
+  strncpy(msg.data, message_text, 256);
+
+  int i;
+  for(i = 0; i < MAX_CLIENTS; i++)
+  {
+    if(i != sender && clients[i].socket != 0
+      && strcmp(clients[i].username, username) == 0)
+    {
+      if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+      {
+          perror("Send failed");
+          exit(1);
+      }
+      return;
+    }
+  }
+
+  msg.type = USERNAME_ERROR;
+  sprintf(msg.data, "Username \"%s\" does not exist or is not logged in.", username);
+
+  if(send(clients[sender].socket, &msg, sizeof(msg), 0) < 0)
+  {
+      perror("Send failed");
+      exit(1);
+  }
+
 }
 
 void send_connect_message(connection_info *clients, int sender)
@@ -189,11 +221,11 @@ void handle_client_message(connection_info clients[], int i)
       break;
 
       case PUBLIC_MESSAGE:
-        send_public_message(clients, i, msg.username, msg.data);
+        send_public_message(clients, i, msg.data);
       break;
 
       case PRIVATE_MESSAGE:
-        //TODO: Implement private message
+        send_private_message(clients, i, msg.username, msg.data);
       break;
 
       default:
