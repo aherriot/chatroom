@@ -1,3 +1,12 @@
+/*
+*
+* Chatroom - a simple linux commandline client/server C program for group chat.
+* Author: Andrew Herriot
+* License: Public Domain
+*
+*/
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
