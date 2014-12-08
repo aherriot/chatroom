@@ -36,7 +36,9 @@ typedef enum
   PUBLIC_MESSAGE,
   PRIVATE_MESSAGE,
   TOO_FULL,
-  USERNAME_ERROR
+  USERNAME_ERROR,
+  SUCCESS,
+  ERROR
 
 } message_type;
 

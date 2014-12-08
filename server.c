@@ -122,12 +122,23 @@ void send_connect_message(connection_info *clients, int sender)
   int i = 0;
   for(i = 0; i < MAX_CLIENTS; i++)
   {
-    if(i != sender && clients[i].socket != 0)
+    if(clients[i].socket != 0)
     {
-      if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+      if(i == sender)
       {
-          perror("Send failed");
-          exit(1);
+        msg.type = SUCCESS;
+        if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+        {
+            perror("Send failed");
+            exit(1);
+        }
+      }else
+      {
+        if(send(clients[i].socket, &msg, sizeof(msg), 0) < 0)
+        {
+            perror("Send failed");
+            exit(1);
+        }
       }
     }
   }
@@ -202,39 +213,49 @@ void stop_server(connection_info connection[])
 }
 
 
-void handle_client_message(connection_info clients[], int i)
+void handle_client_message(connection_info clients[], int sender)
 {
   int read_size;
   message msg;
 
-  if((read_size = recv(clients[i].socket, &msg, sizeof(message), 0)) == 0)
+  if((read_size = recv(clients[sender].socket, &msg, sizeof(message), 0)) == 0)
   {
-    printf("User disconnected: %s.\n", clients[i].username);
-    close(clients[i].socket);
-    clients[i].socket = 0;
-    send_disconnect_message(clients, clients[i].username);
+    printf("User disconnected: %s.\n", clients[sender].username);
+    close(clients[sender].socket);
+    clients[sender].socket = 0;
+    send_disconnect_message(clients, clients[sender].username);
 
   } else {
 
     switch(msg.type)
     {
-
       case GET_USERS:
-        send_user_list(clients, i);
+        send_user_list(clients, sender);
       break;
 
-      case SET_USERNAME:
-        strcpy(clients[i].username, msg.username);
-        printf("User connected: %s\n", clients[i].username);
-        send_connect_message(clients, i);
+      case SET_USERNAME: ;
+        int i;
+        for(i = 0; i < MAX_CLIENTS; i++)
+        {
+          if(clients[i].socket != 0 && strcmp(clients[i].username, msg.username) == 0)
+          {
+            close(clients[sender].socket);
+            clients[sender].socket = 0;
+            return;
+          }
+        }
+
+        strcpy(clients[sender].username, msg.username);
+        printf("User connected: %s\n", clients[sender].username);
+        send_connect_message(clients, sender);
       break;
 
       case PUBLIC_MESSAGE:
-        send_public_message(clients, i, msg.data);
+        send_public_message(clients, sender, msg.data);
       break;
 
       case PRIVATE_MESSAGE:
-        send_private_message(clients, i, msg.username, msg.data);
+        send_private_message(clients, sender, msg.username, msg.data);
       break;
 
       default:
@@ -243,30 +264,29 @@ void handle_client_message(connection_info clients[], int i)
     }
   }
 }
-//
-// int construct_fd_set(fd_set *set, connection_info *server_info,
-//                       connection_info clients[])
-// {
-  // FD_ZERO(set);
-  // FD_SET(STDIN_FILENO, set);
-  // FD_SET(server_info->socket, set);
-  //
-  // int max_fd = server_info->socket;
-  // int i;
-  // for(i = 0; i < MAX_CLIENTS; i++)
-  // {
-  //   if(clients[i].socket > 0)
-  //   {
-  //     FD_SET(clients[i].socket, set);
-  //     if(clients[i].socket > max_fd)
-  //     {
-  //       max_fd = clients[i].socket;
-  //     }
-  //   }
-  // }
-//
-//   return max_fd;
-// }
+
+int construct_fd_set(fd_set *set, connection_info *server_info,
+                      connection_info clients[])
+{
+  FD_ZERO(set);
+  FD_SET(STDIN_FILENO, set);
+  FD_SET(server_info->socket, set);
+
+  int max_fd = server_info->socket;
+  int i;
+  for(i = 0; i < MAX_CLIENTS; i++)
+  {
+    if(clients[i].socket > 0)
+    {
+      FD_SET(clients[i].socket, set);
+      if(clients[i].socket > max_fd)
+      {
+        max_fd = clients[i].socket;
+      }
+    }
+  }
+  return max_fd;
+}
 
 void handle_new_connection(connection_info *server_info, connection_info clients[])
 {
@@ -330,24 +350,7 @@ int main(int argc, char *argv[])
 
   while(true)
   {
-    int max_fd = 0;
-    FD_ZERO(&file_descriptors);
-    FD_SET(STDIN_FILENO, &file_descriptors);
-    FD_SET(server_info.socket, &file_descriptors);
-
-    max_fd = server_info.socket;
-    int i;
-    for(i = 0; i < MAX_CLIENTS; i++)
-    {
-      if(clients[i].socket > 0)
-      {
-        FD_SET(clients[i].socket, &file_descriptors);
-        if(clients[i].socket > max_fd)
-        {
-          max_fd = clients[i].socket;
-        }
-      }
-    }
+    int max_fd = construct_fd_set(&file_descriptors, &server_info, clients);
 
     if(select(max_fd+1, &file_descriptors, NULL, NULL, NULL) < 0)
     {

@@ -1,7 +1,7 @@
 /*
 *
 * Chatroom - a simple linux commandline client/server C program for group chat.
-* Author: Andrew Herriot 
+* Author: Andrew Herriot
 * License: Public Domain
 *
 */
@@ -32,7 +32,6 @@ void get_username(char *username)
     if(strlen(username) > 20)
     {
       // clear_stdin_buffer();
-
       puts("Username must be 20 characters or less.");
 
     } else {
@@ -44,18 +43,16 @@ void get_username(char *username)
 //send local username to the server.
 void set_username(connection_info *connection)
 {
+  message msg;
+  msg.type = SET_USERNAME;
+  strncpy(msg.username, connection->username, 20);
 
-  message username_message;
-  username_message.type = SET_USERNAME;
-  strncpy(username_message.username, connection->username, 20);
-
-  if(send(connection->socket, (void*)&username_message, sizeof(username_message), 0) < 0)
+  if(send(connection->socket, (void*)&msg, sizeof(msg), 0) < 0)
   {
     perror("Send failed");
     exit(1);
   }
 }
-
 
 void stop_client(connection_info *connection)
 {
@@ -67,26 +64,47 @@ void stop_client(connection_info *connection)
 void connect_to_server(connection_info *connection, char *address, char *port)
 {
 
-  get_username(connection->username);
-
-  //Create socket
-  if ((connection->socket = socket(AF_INET, SOCK_STREAM , IPPROTO_TCP)) < 0)
+  while(true)
   {
-      perror("Could not create socket");
+    get_username(connection->username);
+
+    //Create socket
+    if ((connection->socket = socket(AF_INET, SOCK_STREAM , IPPROTO_TCP)) < 0)
+    {
+        perror("Could not create socket");
+    }
+
+    connection->address.sin_addr.s_addr = inet_addr(address);
+    connection->address.sin_family = AF_INET;
+    connection->address.sin_port = htons(atoi(port));
+
+    //Connect to remote server
+    if (connect(connection->socket, (struct sockaddr *)&connection->address , sizeof(connection->address)) < 0)
+    {
+        perror("Connect failed.");
+        exit(1);
+    }
+
+    set_username(connection);
+
+    message msg;
+    ssize_t recv_val = recv(connection->socket, &msg, sizeof(message), 0);
+    if(recv_val < 0)
+    {
+        perror("recv failed");
+        exit(1);
+
+    }
+    else if(recv_val == 0)
+    {
+      close(connection->socket);
+      printf("The username \"%s\" is taken, please try another name.\n", connection->username);
+      continue;
+    }
+
+    break;
   }
 
-  connection->address.sin_addr.s_addr = inet_addr(address);
-  connection->address.sin_family = AF_INET;
-  connection->address.sin_port = htons(atoi(port));
-
-  //Connect to remote server
-  if (connect(connection->socket, (struct sockaddr *)&connection->address , sizeof(connection->address)) < 0)
-  {
-      perror("Connect failed.");
-      exit(1);
-  }
-
-  set_username(connection);
 
   puts("Connected to server.");
   puts("Type /help for usage.");
@@ -242,10 +260,6 @@ void handle_server_message(connection_info *connection)
     case TOO_FULL:
       fprintf(stderr, KRED "Server chatroom is too full to accept new clients." RESET "\n");
       exit(0);
-    break;
-
-    case USERNAME_ERROR:
-      fprintf(stderr, KRED "%s" RESET "\n", msg.data);
     break;
 
     default:
